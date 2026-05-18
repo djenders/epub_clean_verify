@@ -1,0 +1,19 @@
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Test artifacts
+*.epub
+*_original_backup.epub
+*_cleaned.epub
+*_epubcheck.log
+
+# Editor/IDE
+.vscode/
+.idea/
+*.swp
+*~
+
+# Logs
+*.log
