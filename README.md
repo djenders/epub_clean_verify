@@ -192,9 +192,26 @@ OceanofPDF books pulled from major publishers (HarperCollins, Random House, Simo
 | `RSC-007` "Referenced resource could not be found" | Manifest references missing file | Often paired with `OPF-031`; same publisher issue |
 | `HTM-025` "value attribute on li" | Deprecated XHTML attribute | Renders correctly; just out of spec |
 
+### The one "introduced error" you might see — and why it's not really damage
+
+On some books — particularly ones where the publisher used EPUB 3 elements like `<section>` inside a file the OPF declares as EPUB 2 — you may see the script report a number of *introduced* errors all of the same shape:
+
+```
+ERROR(RSC-005): ... element "body" incomplete; expected element "address",
+"blockquote", "del", "div", "dl", "h1", ... "ul" ...
+```
+
+Here's what's actually happening. In these books, Ocean's watermark `<div>` is placed inside `<body>` next to the publisher's `<section>`. The schema epubcheck is enforcing doesn't recognize `<section>` as a valid block child of `<body>` (that's an EPUB 3 element being checked against EPUB 2 rules — a pre-existing publisher issue). But the watermark `<div>` *is* a valid block child, so before cleaning, `<body>` had at least one element the parser accepted, and the "body incomplete" error didn't fire.
+
+When the script removes the watermark, the only thing left in `<body>` is the `<section>` epubcheck doesn't recognize — and now it complains that `<body>` is empty (of valid elements). One new error per affected file.
+
+The cleaned file renders perfectly in every actual reader (Apple Books, Kindle Previewer, Calibre, Thorium). The error is a strict-schema technicality, and it exists because the publisher's own markup was already out of spec for the version they declared. The watermark was, ironically, the only thing satisfying the validator. The script could mask this by inserting an empty `<p/>` placeholder in place of every stripped watermark, but that would mean modifying files beyond actual cleaning for a problem that's cosmetic — so it doesn't.
+
+If you see this pattern (introduced errors with the exact same "body incomplete" message, one per chapter file), you can safely treat it the same as pre-existing publisher errors.
+
 ### When to actually worry
 
-If the log shows errors with line numbers that match files Ocean's watermark touched (any `.xhtml`, `.html`, `.opf`, or `.ncx`), and those errors mention `</section>`, `</body>`, `</div>`, or tag-balance issues, that *could* be the script — open a backup vs. cleaned diff to compare. The structural safety net should catch most cases automatically, but a novel watermark pattern could slip through.
+If the log shows errors with line numbers that match files Ocean's watermark touched (any `.xhtml`, `.html`, `.opf`, or `.ncx`), and those errors mention `</section>`, `</body>`, `</div>`, or tag-balance issues *other than* the "body incomplete" case above, that *could* be the script — open a backup vs. cleaned diff to compare. The structural safety net should catch most cases automatically, but a novel watermark pattern could slip through.
 
 ## What the script doesn't do
 
