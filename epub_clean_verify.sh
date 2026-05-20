@@ -151,6 +151,17 @@ process_one() {
     return 2
   fi
 
+  # Normalize permissions on the unzipped tree. Some EPUBs (notably
+  # certain OceanofPDF redistributions) have the file mode bits set to
+  # 0000 inside the ZIP itself — meaning the extracted files are
+  # unreadable to the user that just unzipped them. Terminal sessions
+  # often work around this via permissive umask or root, but Quick
+  # Actions run in a sandboxed bash that honors the 0000 strictly,
+  # causing zip to fail with "Permission denied" on repack. Forcing
+  # readable+writable on the whole tree is harmless for normal EPUBs
+  # and rescues the broken ones.
+  chmod -R u+rwX "$workdir" 2>/dev/null || true
+
   # --- Content cleaning ---
 
   # Remove loose OceanofPDF promo files. Silent on books without them.
@@ -273,16 +284,35 @@ process_one() {
   fi
 
   # --- Repack (EPUB-valid order) ---
+  #
+  # Capture zip's stderr to a temp file so any failure (permission
+  # denied, disk full, illegal filename, etc.) actually shows up in
+  # the run log instead of being swallowed by `-q`.
 
   rm -f "$output"
-  (
+  local zip_err
+  zip_err="$(mktemp)"
+  if ! (
     cd "$workdir" || exit 1
-    zip -X0 -q "$output" mimetype && \
-    zip -Xr9D -q "$output" . -x mimetype
-  ) || {
+    zip -X0 -q "$output" mimetype 2>"$zip_err" && \
+    zip -Xr9D -q "$output" . -x mimetype 2>>"$zip_err"
+  ); then
     fail "  ✗ Repack failed: $input_file"
+    if [[ -s "$zip_err" ]]; then
+      {
+        echo "    ↳ zip stderr:"
+        sed 's/^/      /' "$zip_err"
+      } | log_block
+    fi
+    rm -f "$zip_err"
+    # Clean up any partial output the first zip command may have left
+    # behind. Better to leave the directory empty than to have an
+    # invalid stub file sitting there that the user might mistake for
+    # a real cleaned book.
+    rm -f "$output"
     return 2
-  }
+  fi
+  rm -f "$zip_err"
 
   # --- epubcheck (with baseline comparison) ---
   #

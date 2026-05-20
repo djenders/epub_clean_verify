@@ -171,6 +171,9 @@ The structural safety net caught damage in one of the cleaned files and reverted
 **"Not a valid zip archive" on a file you know is an EPUB.**
 The file is probably DRM-encrypted (typical of files from Apple Books, Amazon, or Kobo). The script can't process DRM-encrypted EPUBs; you'd need to remove DRM first using whatever tool is appropriate for your jurisdiction.
 
+**"Repack failed" on a file.**
+The run log will include the actual `zip` stderr beneath the failure line, which usually tells you exactly what went wrong (disk full, permission denied, illegal filename, etc.). If the underlying cause looks like a permissions issue on a freshly-downloaded EPUB, that's a known pattern — some redistributors ship archives with `0000` permission bits on internal files, which the script normalizes after unzipping. If you see this anyway, the log detail will say so.
+
 ## Reading epubcheck errors
 
 When epubcheck reports errors on a cleaned file, the script runs epubcheck on the *original* too and compares error counts. The full output of both runs is appended to the consolidated log so you can see exactly what each one found. The notification and per-file summary line then tell you which of two situations you're in:
